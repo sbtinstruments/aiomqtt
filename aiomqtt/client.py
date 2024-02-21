@@ -696,12 +696,12 @@ class Client:
                 self._properties,
             )
             _set_client_socket_defaults(self._client.socket(), self._socket_options)
+            await self._wait_for(self._connected, timeout=None)
         # Convert all possible paho-mqtt Client.connect exceptions to our MqttError
         # See: https://github.com/eclipse/paho.mqtt.python/blob/v1.5.0/src/paho/mqtt/client.py#L1770
-        except (OSError, mqtt.WebsocketConnectionError) as exc:
+        except (OSError, mqtt.WebsocketConnectionError, MqttConnectError) as exc:
             self._lock.release()
             raise MqttError(str(exc)) from None
-        await self._wait_for(self._connected, timeout=None)
         # Reset `_disconnected` if it's already in completed state after connecting
         if self._disconnected.done():
             self._disconnected = asyncio.Future()
