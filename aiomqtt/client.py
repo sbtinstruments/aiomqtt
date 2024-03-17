@@ -233,7 +233,6 @@ class Client:
         if max_queued_incoming_messages is None:
             max_queued_incoming_messages = 0
         self._queue = queue_type(maxsize=max_queued_incoming_messages)
-        self.messages = self._messages()
 
         # Semaphore to limit the number of concurrent outgoing calls
         self._outgoing_calls_sem: asyncio.Semaphore | None
@@ -446,6 +445,15 @@ class Client:
         with self._pending_call(info.mid, confirmation, self._pending_publishes):
             # Wait for confirmation
             await self._wait_for(confirmation.wait(), timeout=timeout)
+
+    @property
+    def messages(self) -> AsyncGenerator[Message, None]:
+        warnings.warn('"client.messages" was renamed to "client.get_messages()"', DeprecationWarning)
+        return self.get_messages()
+
+    def get_messages(self) -> AsyncGenerator[Message, None]:
+        # todo: raise Exception when disconnected
+        return self._messages()
 
     async def _messages(self) -> AsyncGenerator[Message, None]:
         """Async generator that yields messages from the underlying message queue."""
@@ -723,6 +731,7 @@ class Client:
         tb: TracebackType | None,
     ) -> None:
         """Disconnect from the broker."""
+
         if self._disconnected.done():
             # Return early if the client is already disconnected
             if self._lock.locked():
