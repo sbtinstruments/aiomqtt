@@ -11,6 +11,9 @@ import paho.mqtt.client as mqtt
 import pytest
 from anyio import TASK_STATUS_IGNORED
 from anyio.abc import TaskStatus
+from paho.mqtt.enums import MQTTErrorCode
+from paho.mqtt.properties import Properties
+from paho.mqtt.subscribeoptions import SubscribeOptions
 
 from aiomqtt import (
     Client,
@@ -85,7 +88,7 @@ async def test_client_will() -> None:
         tg.start_soon(launch_client)
         await event.wait()
         async with Client(HOSTNAME, will=Will(topic)) as client:
-            client._client._sock_close()  # type: ignore[attr-defined]
+            client._client._sock_close()
 
 
 @pytest.mark.network
@@ -152,7 +155,7 @@ async def test_client_username_password() -> None:
 async def test_client_logger() -> None:
     logger = logging.getLogger("aiomqtt")
     async with Client(HOSTNAME, logger=logger) as client:
-        assert logger is client._client._logger  # type: ignore[attr-defined]
+        assert logger is client._client._logger
 
 
 @pytest.mark.network
@@ -165,23 +168,24 @@ async def test_client_max_concurrent_outgoing_calls(
         def subscribe(
             self,
             topic: str
-            | tuple[str, mqtt.SubscribeOptions]
-            | list[tuple[str, mqtt.SubscribeOptions]]
-            | list[tuple[str, int]],
+            | tuple[str, int]
+            | tuple[str, SubscribeOptions]
+            | list[tuple[str, int]]
+            | list[tuple[str, SubscribeOptions]],
             qos: int = 0,
-            options: mqtt.SubscribeOptions | None = None,
-            properties: mqtt.Properties | None = None,
-        ) -> tuple[int, int]:
+            options: SubscribeOptions | None = None,
+            properties: Properties | None = None,
+        ) -> tuple[MQTTErrorCode, int | None]:
             assert client._outgoing_calls_sem is not None
             assert client._outgoing_calls_sem.locked()
             return super().subscribe(topic, qos, options, properties)
 
         def unsubscribe(
-            self, topic: str | list[str], properties: mqtt.Properties | None = None
-        ) -> tuple[int, int]:
+            self, topic: str | list[str], properties: Properties | None = None
+        ) -> tuple[MQTTErrorCode, int | None]:
             assert client._outgoing_calls_sem is not None
             assert client._outgoing_calls_sem.locked()
-            return super().unsubscribe(topic, properties)
+            return super().unsubscribe(topic, properties)  # type: ignore[arg-type]
 
         def publish(  # noqa: PLR0913
             self,
@@ -189,7 +193,7 @@ async def test_client_max_concurrent_outgoing_calls(
             payload: PayloadType | None = None,
             qos: int = 0,
             retain: bool = False,
-            properties: mqtt.Properties | None = None,
+            properties: Properties | None = None,
         ) -> mqtt.MQTTMessageInfo:
             assert client._outgoing_calls_sem is not None
             assert client._outgoing_calls_sem.locked()

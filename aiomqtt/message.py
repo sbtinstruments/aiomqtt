@@ -4,6 +4,7 @@ from __future__ import annotations
 import sys
 
 import paho.mqtt.client as mqtt
+from paho.mqtt.properties import Properties
 
 if sys.version_info >= (3, 11):
     from typing import Self
@@ -50,7 +51,7 @@ class Message:
         qos: int,
         retain: bool,
         mid: int,
-        properties: mqtt.Properties | None,
+        properties: Properties | None,
     ) -> None:
         self.topic = Topic(topic) if not isinstance(topic, Topic) else topic
         self.payload = payload

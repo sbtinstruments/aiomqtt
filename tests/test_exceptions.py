@@ -1,6 +1,7 @@
 import paho.mqtt.client as mqtt
 import pytest
 from paho.mqtt.packettypes import PacketTypes
+from paho.mqtt.reasoncodes import ReasonCode
 
 from aiomqtt.exceptions import _CONNECT_RC_STRINGS, MqttCodeError, MqttConnectError
 
@@ -29,7 +30,7 @@ from aiomqtt.exceptions import _CONNECT_RC_STRINGS, MqttCodeError, MqttConnectEr
     ],
 )
 def test_mqtt_code_error_int(rc: int) -> None:
-    assert str(MqttCodeError(rc)) == f"[code:{rc}] {mqtt.error_string(rc)}"
+    assert str(MqttCodeError(rc)) == f"[code:{rc}] {mqtt.error_string(rc)}"  # type: ignore[arg-type]
 
 
 @pytest.mark.parametrize(
@@ -41,7 +42,7 @@ def test_mqtt_code_error_int(rc: int) -> None:
     ],
 )
 def test_mqtt_code_error_reason_codes(packet_type: int, a_name: str) -> None:
-    rc = mqtt.ReasonCodes(packet_type, a_name)
+    rc = ReasonCode(packet_type, a_name)  # type: ignore[no-untyped-call]
     assert str(MqttCodeError(rc)) == f"[code:{rc.value}] {rc!s}"
 
 
@@ -56,7 +57,7 @@ def test_mqtt_connect_error_int(rc: int, message: str) -> None:
     if rc in _CONNECT_RC_STRINGS:
         arg += f": {message}"
     assert error.args[0] == arg
-    assert str(error) == f"[code:{rc}] {mqtt.error_string(rc)}"
+    assert str(error) == f"[code:{rc}] {mqtt.error_string(rc)}"  # type: ignore[arg-type]
 
 
 @pytest.mark.parametrize(
@@ -68,5 +69,5 @@ def test_mqtt_connect_error_int(rc: int, message: str) -> None:
     ],
 )
 def test_mqtt_connect_error_reason_codes(packet_type: int, a_name: str) -> None:
-    rc = mqtt.ReasonCodes(packet_type, a_name)
+    rc = ReasonCode(packet_type, a_name)  # type: ignore[no-untyped-call]
     assert str(MqttConnectError(rc)) == f"[code:{rc.value}] {rc!s}"

@@ -20,16 +20,15 @@ classifiers = [
 
 [tool.poetry.dependencies]
 python = "^3.8"
-paho-mqtt = "^1.6.0"
+paho-mqtt = "^2.0.0"
 typing-extensions = {version = "^4.4.0", markers = "python_version < '3.10'"}
 
 [tool.poetry.group.dev]
 optional = true
 
 [tool.poetry.group.dev.dependencies]
-mypy = "^1.8.0"
+mypy = "^1.9.0"
 ruff = "^0.1.9"
-types-paho-mqtt = "^1.6.0.7"
 pytest = "^7.3.1"
 pytest-cov = "^4.0.0"
 anyio = "^3.6.2"
@@ -137,6 +136,8 @@ pretty = true
 filterwarnings = [
     "error",
     "ignore:ssl.PROTOCOL_TLS is deprecated:DeprecationWarning",
+    # TODO(jonathan): Remove these once we finish the migration to the new API
+    "ignore:Callback API version 1 is deprecated, update to latest version:DeprecationWarning",
 ]
 markers = [
     "network: tests that requires network access"

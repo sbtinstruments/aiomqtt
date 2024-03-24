@@ -6,7 +6,7 @@ import ssl
 import sys
 from typing import Any, Callable, TypeVar
 
-import paho.mqtt.client as mqtt
+from paho.mqtt.subscribeoptions import SubscribeOptions
 
 if sys.version_info >= (3, 10):
     from typing import ParamSpec, TypeAlias
@@ -18,10 +18,10 @@ T = TypeVar("T")
 P = ParamSpec("P")
 
 PayloadType: TypeAlias = "str | bytes | bytearray | int | float | None"
-SubscribeTopic: TypeAlias = "str | tuple[str, mqtt.SubscribeOptions] | list[tuple[str, mqtt.SubscribeOptions]] | list[tuple[str, int]]"
+SubscribeTopic: TypeAlias = "str | tuple[str, SubscribeOptions] | list[tuple[str, SubscribeOptions]] | list[tuple[str, int]]"
 WebSocketHeaders: TypeAlias = (
     "dict[str, str] | Callable[[dict[str, str]], dict[str, str]]"
 )
-_PahoSocket: TypeAlias = "socket.socket | ssl.SSLSocket | mqtt.WebsocketWrapper | Any"
+_PahoSocket: TypeAlias = "socket.socket | ssl.SSLSocket | Any"
 # See the overloads of `socket.setsockopt` for details.
 SocketOption: TypeAlias = "tuple[int, int, int | bytes] | tuple[int, int, None, int]"
