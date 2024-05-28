@@ -20,8 +20,10 @@ classifiers = [
 
 [tool.poetry.dependencies]
 python = "^3.8"
-paho-mqtt = "^2.0.0"
+paho-mqtt = "^2.0"
+anyio = "^4.3"
 typing-extensions = {version = "^4.4.0", markers = "python_version < '3.10'"}
+outcome = "^1.2"
 
 [tool.poetry.group.dev]
 optional = true
@@ -31,7 +33,6 @@ mypy = "^1.9.0"
 ruff = "^0.1.9"
 pytest = "^7.3.1"
 pytest-cov = "^4.0.0"
-anyio = "^3.6.2"
 furo = "^2023.3.27"
 sphinx-autobuild = "^2021.3.14"
 myst-parser = "^1.0.0"

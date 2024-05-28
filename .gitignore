@@ -11,3 +11,6 @@ aiomqtt/_version.py
 *.DS_Store
 docs/_build
 reports
+
+# Debian packaging
+/debian/

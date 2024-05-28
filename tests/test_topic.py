@@ -68,3 +68,19 @@ def test_topic_matches() -> None:
     assert not topic.matches("a/b/c/+")
     assert not topic.matches("$share/a/b/c")
     assert not topic.matches("$test/group/a/b/c")
+
+def test_dollar_matches() -> None:
+    """Test that Topic.matches() does and doesn't match some test wildcards."""
+    topic = Topic("a/$foo/c")
+    assert topic.matches("#")
+    assert topic.matches("a/$foo/#")
+    assert topic.matches("a/$foo/c")
+    assert topic.matches("a/$foo/c/#")
+    assert topic.matches("$share/group/a/$foo/c")
+
+    assert not topic.matches("a/b/c")
+    assert not topic.matches("a/+/c")
+    assert not topic.matches("+/+/+")
+    assert not topic.matches("+/#")
+    assert not topic.matches("a/$foo/c/d")
+    assert not topic.matches("$share/group/a/b/c")

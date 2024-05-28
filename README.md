@@ -1,4 +1,4 @@
-<h1 align="center">The idiomatic asyncio MQTT client 🙌</h1>
+<h1 align="center">The idiomatic async MQTT client 🙌</h1>
 <p align="center"><em>(formerly known as asyncio-mqtt)</em></p>
 <p align="center">
     <a href="https://github.com/sbtinstruments/aiomqtt/blob/main/LICENSE"><img alt="License: BSD-3-Clause" src="https://img.shields.io/github/license/sbtinstruments/aiomqtt"></a>
@@ -33,14 +33,16 @@ async with Client("test.mosquitto.org") as client:
         print(message.payload)
 ```
 
-aiomqtt combines the stability of the time-proven [paho-mqtt](https://github.com/eclipse/paho.mqtt.python) library with an idiomatic asyncio interface:
+aiomqtt combines the stability of the time-proven [paho-mqtt](https://github.com/eclipse/paho.mqtt.python) library with an idiomatic async interface:
 
 - No more callbacks! 👍
 - No more return codes (welcome to the `MqttError`)
 - Graceful disconnection (forget about `on_unsubscribe`, `on_disconnect`, etc.)
 - Supports MQTT versions 5.0, 3.1.1 and 3.1
+- Optionally: separate queues per subscription. No more overhead for dispatching.
 - Fully type-hinted
 - Did we mention no more callbacks?
+- Works with asyncio *and* trio! No workarounds required!
 
 <!-- pitch end -->
 
@@ -54,24 +56,11 @@ aiomqtt combines the stability of the time-proven [paho-mqtt](https://github.com
 
 ## Installation
 
-aiomqtt can be installed via `pip install aiomqtt`. The only dependency is [paho-mqtt](https://github.com/eclipse/paho.mqtt.python).
+aiomqtt can be installed via `pip install aiomqtt`. The only dependencies are [paho-mqtt](https://github.com/eclipse/paho.mqtt.python) and [anyio](https://github.com/agronholm/anyio).
 
 If you can't wait for the latest version, you can install aiomqtt directly from GitHub with:
 
 `pip install git+https://github.com/sbtinstruments/aiomqtt`
-
-### Note for Windows users
-
-Since Python `3.8`, the default asyncio event loop is the `ProactorEventLoop`. Said loop [doesn't support the `add_reader` method](https://docs.python.org/3/library/asyncio-platforms.html#windows) that is required by aiomqtt. Please switch to an event loop that supports the `add_reader` method such as the built-in `SelectorEventLoop`:
-
-```python
-# Change to the "Selector" event loop if platform is Windows
-if sys.platform.lower() == "win32" or os.name.lower() == "nt":
-    from asyncio import set_event_loop_policy, WindowsSelectorEventLoopPolicy
-    set_event_loop_policy(WindowsSelectorEventLoopPolicy())
-# Run your async application as usual
-asyncio.run(main())
-```
 
 ## License
 

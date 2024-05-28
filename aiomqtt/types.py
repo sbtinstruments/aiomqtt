@@ -25,3 +25,15 @@ WebSocketHeaders: TypeAlias = (
 _PahoSocket: TypeAlias = "socket.socket | ssl.SSLSocket | Any"
 # See the overloads of `socket.setsockopt` for details.
 SocketOption: TypeAlias = "tuple[int, int, int | bytes] | tuple[int, int, None, int]"
+
+
+
+def extract_topics(topic: SubscribeTopic) -> List[str]:
+    if isinstance(topic,str):
+        yield topic
+    elif isinstance(topic,tuple):
+        yield topic[0]
+    else:
+        for top in topic:
+            yield top[0]
+

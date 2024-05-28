@@ -187,6 +187,79 @@ asyncio.run(main())
 You can use [different queue types](#the-message-queue) for these queues to e.g. handle temperature in FIFO and humidity in LIFO order.
 ```
 
+## Implicit message dispatching
+
+The code snippets so far read a global message queue and dispatch messages by comparing topics. The problem is that this is duplicate work: the server already did the comparison, so why should the client do that too?
+
+Another problem with the "global queue" approach is that when you extend your program, you also need to modify the central distributor task. That's not particularly modular.
+
+Fortunately the client can do the work for you, by directly dispatching the message to a local queue. This also simplifies your code:
+
+```python
+import asyncio
+import aiomqtt
+
+
+async def temperature_consumer(client):
+    async with client.subscription("temperature/#") as messages:
+        async for message in messages:
+            print(f"[temperature/#] {message.payload}")
+
+
+async def humidity_consumer(client):
+    async with client.subscription("humidity/#") as messages:
+        async for message in messages:
+            print(f"[humidity/#] {message.payload}")
+
+async def main():
+    async with aiomqtt.Client("test.mosquitto.org") as client, \
+            asyncio.TaskGroup() as tg:
+        tg.create_task(temperature_consumer(client))
+        tg.create_task(humidity_consumer(client))
+
+asyncio.run(main())
+```
+
+This method adds an ID to each subscription. The server adds the IDs to each message it sends to us. Then we simply use the IDs to send the message to all queues it's destined for.
+
+You can freely mix and match this approach with the central-distributor model.
+
+```{tip}
+MQTT clients cannot subscribe to two identical topic patterns. One possible workaround is to use MQTTv5's "shared subscription" feature (using different unique share names). See section 4.8.2 of [the MQTT standard](https://docs.oasis-open.org/mqtt/mqtt/v5.0/os/mqtt-v5.0-os.html#_Shared_Subscriptions) for details.
+```
+
+## Queue overrun
+
+Message queues are not infinite. When a reading task gets too far behind, ultimately we can't queue another message. Oops.
+
+Local subscriptions handle this situation by closing the queue. The reader will get an `anyio.IncompleteReadError` exception after consuming the remaining data. You then need to restart the subscription:
+
+```python
+
+from asyncio.queue import Queue
+
+async def temperature_consumer(client):
+    while True:
+        try:
+            q = Queue(5)
+            async with client.subscription("temperature/#", queue=q) as messages:
+                async for message in messages:
+                    print(f"[temperature/#] {message.payload}")
+                    await asyncio.sleep(2)  # some async processing of this message
+
+        except anyio.IncompleteReadError:
+            print("Too many temperatures too fast! I could not keep up!")
+```
+
+Local queues are limited to 100 messages by default.
+
+The global queue's length defaults to 10000. If the global queue is full,
+new messages are silently dropped.
+
+```{tip}
+MQTT's "retained message" feature means that when you subscribe to a wildcard, the server might flood you with retained state for all matching topics. Your queues need to be large enough to handle this.
+```
+
 ## Listening without blocking
 
 When you run the minimal example for subscribing and listening for messages, you'll notice that the program doesn't finish. Waiting for messages through the `Client.messages()` generator blocks the execution of everything that comes afterward.
