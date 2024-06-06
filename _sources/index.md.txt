@@ -1,9 +1,4 @@
-# The idiomatic asyncio MQTT client
-
-```{include} ../README.md
-:start-after: <!-- pitch start -->
-:end-before: <!-- pitch end -->
-```
+# The idiomatic asyncio MQTT client 🙌
 
 ```{include} ../README.md
 :start-after: <!-- documentation start -->
