@@ -309,23 +309,24 @@
 <section id="processing-concurrently">
 <h2>Processing concurrently<a class="headerlink" href="#processing-concurrently" title="Permalink to this heading">#</a></h2>
 <p>Messages are queued internally and returned sequentially from <code class="docutils literal notranslate"><span class="pre">Client.messages</span></code>. If a message takes a long time to handle, it blocks the handling of other messages.</p>
-<p>You can handle messages concurrently by using an <code class="docutils literal notranslate"><span class="pre">asyncio.TaskGroup</span></code> like so:</p>
+<p>You can handle messages concurrently by using multiple worker tasks like so:</p>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span> <span class="nn">asyncio</span>
 <span class="kn">import</span> <span class="nn">aiomqtt</span>
 
 
-<span class="k">async</span> <span class="k">def</span> <span class="nf">handle</span><span class="p">(</span><span class="n">message</span><span class="p">):</span>
-    <span class="k">await</span> <span class="n">asyncio</span><span class="o">.</span><span class="n">sleep</span><span class="p">(</span><span class="mi">5</span><span class="p">)</span>  <span class="c1"># Simulate some I/O-bound work</span>
-    <span class="nb">print</span><span class="p">(</span><span class="n">message</span><span class="o">.</span><span class="n">payload</span><span class="p">)</span>
+<span class="k">async</span> <span class="k">def</span> <span class="nf">work</span><span class="p">(</span><span class="n">client</span><span class="p">):</span>
+    <span class="k">async</span> <span class="k">for</span> <span class="n">message</span> <span class="ow">in</span> <span class="n">client</span><span class="o">.</span><span class="n">messages</span><span class="p">:</span>
+        <span class="k">await</span> <span class="n">asyncio</span><span class="o">.</span><span class="n">sleep</span><span class="p">(</span><span class="mi">5</span><span class="p">)</span>  <span class="c1"># Simulate some I/O-bound work</span>
+        <span class="nb">print</span><span class="p">(</span><span class="n">message</span><span class="o">.</span><span class="n">payload</span><span class="p">)</span>
 
 
 <span class="k">async</span> <span class="k">def</span> <span class="nf">main</span><span class="p">():</span>
     <span class="k">async</span> <span class="k">with</span> <span class="n">aiomqtt</span><span class="o">.</span><span class="n">Client</span><span class="p">(</span><span class="s2">&quot;test.mosquitto.org&quot;</span><span class="p">)</span> <span class="k">as</span> <span class="n">client</span><span class="p">:</span>
         <span class="k">await</span> <span class="n">client</span><span class="o">.</span><span class="n">subscribe</span><span class="p">(</span><span class="s2">&quot;temperature/#&quot;</span><span class="p">)</span>
-        <span class="c1"># Use a task group to manage and await all tasks</span>
+        <span class="c1"># Use a task group to manage and await all worker tasks</span>
         <span class="k">async</span> <span class="k">with</span> <span class="n">asyncio</span><span class="o">.</span><span class="n">TaskGroup</span><span class="p">()</span> <span class="k">as</span> <span class="n">tg</span><span class="p">:</span>
-            <span class="k">async</span> <span class="k">for</span> <span class="n">message</span> <span class="ow">in</span> <span class="n">client</span><span class="o">.</span><span class="n">messages</span><span class="p">:</span>
-                <span class="n">tg</span><span class="o">.</span><span class="n">create_task</span><span class="p">(</span><span class="n">handle</span><span class="p">(</span><span class="n">message</span><span class="p">))</span>  <span class="c1"># Spawn new coroutine</span>
+            <span class="k">for</span> <span class="n">_</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">2</span><span class="p">):</span>  <span class="c1"># You can use more than two workers here</span>
+                <span class="n">tg</span><span class="o">.</span><span class="n">create_task</span><span class="p">(</span><span class="n">work</span><span class="p">(</span><span class="n">client</span><span class="p">))</span>
 
 
 <span class="n">asyncio</span><span class="o">.</span><span class="n">run</span><span class="p">(</span><span class="n">main</span><span class="p">())</span>
@@ -334,58 +335,6 @@
 <div class="admonition important">
 <p class="admonition-title">Important</p>
 <p>Coroutines only make sense if your message handling is I/O-bound. If it’s CPU-bound, you should spawn multiple processes instead.</p>
-</div>
-</section>
-<section id="multiple-queues">
-<h2>Multiple queues<a class="headerlink" href="#multiple-queues" title="Permalink to this heading">#</a></h2>
-<p>The code snippet above handles each message in a new coroutine. Sometimes, we want to handle messages from different topics concurrently, but sequentially inside a single topic.</p>
-<p>The idea here is to implement a “distributor” that sorts incoming messages into multiple asyncio queues. Each queue is then processed by a different coroutine. Let’s see how this works for our temperature and humidity messages:</p>
-<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span> <span class="nn">asyncio</span>
-<span class="kn">import</span> <span class="nn">aiomqtt</span>
-
-
-<span class="k">async</span> <span class="k">def</span> <span class="nf">temperature_consumer</span><span class="p">():</span>
-    <span class="k">while</span> <span class="kc">True</span><span class="p">:</span>
-        <span class="n">message</span> <span class="o">=</span> <span class="k">await</span> <span class="n">temperature_queue</span><span class="o">.</span><span class="n">get</span><span class="p">()</span>
-        <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;[temperature/#] </span><span class="si">{</span><span class="n">message</span><span class="o">.</span><span class="n">payload</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
-
-
-<span class="k">async</span> <span class="k">def</span> <span class="nf">humidity_consumer</span><span class="p">():</span>
-    <span class="k">while</span> <span class="kc">True</span><span class="p">:</span>
-        <span class="n">message</span> <span class="o">=</span> <span class="k">await</span> <span class="n">humidity_queue</span><span class="o">.</span><span class="n">get</span><span class="p">()</span>
-        <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;[humidity/#] </span><span class="si">{</span><span class="n">message</span><span class="o">.</span><span class="n">payload</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
-
-
-<span class="n">temperature_queue</span> <span class="o">=</span> <span class="n">asyncio</span><span class="o">.</span><span class="n">Queue</span><span class="p">()</span>
-<span class="n">humidity_queue</span> <span class="o">=</span> <span class="n">asyncio</span><span class="o">.</span><span class="n">Queue</span><span class="p">()</span>
-
-
-<span class="k">async</span> <span class="k">def</span> <span class="nf">distributor</span><span class="p">(</span><span class="n">client</span><span class="p">):</span>
-    <span class="c1"># Sort messages into the appropriate queues</span>
-    <span class="k">async</span> <span class="k">for</span> <span class="n">message</span> <span class="ow">in</span> <span class="n">client</span><span class="o">.</span><span class="n">messages</span><span class="p">:</span>
-        <span class="k">if</span> <span class="n">message</span><span class="o">.</span><span class="n">topic</span><span class="o">.</span><span class="n">matches</span><span class="p">(</span><span class="s2">&quot;temperature/#&quot;</span><span class="p">):</span>
-            <span class="n">temperature_queue</span><span class="o">.</span><span class="n">put_nowait</span><span class="p">(</span><span class="n">message</span><span class="p">)</span>
-        <span class="k">elif</span> <span class="n">message</span><span class="o">.</span><span class="n">topic</span><span class="o">.</span><span class="n">matches</span><span class="p">(</span><span class="s2">&quot;humidity/#&quot;</span><span class="p">):</span>
-            <span class="n">humidity_queue</span><span class="o">.</span><span class="n">put_nowait</span><span class="p">(</span><span class="n">message</span><span class="p">)</span>
-
-
-<span class="k">async</span> <span class="k">def</span> <span class="nf">main</span><span class="p">():</span>
-    <span class="k">async</span> <span class="k">with</span> <span class="n">aiomqtt</span><span class="o">.</span><span class="n">Client</span><span class="p">(</span><span class="s2">&quot;test.mosquitto.org&quot;</span><span class="p">)</span> <span class="k">as</span> <span class="n">client</span><span class="p">:</span>
-        <span class="k">await</span> <span class="n">client</span><span class="o">.</span><span class="n">subscribe</span><span class="p">(</span><span class="s2">&quot;temperature/#&quot;</span><span class="p">)</span>
-        <span class="k">await</span> <span class="n">client</span><span class="o">.</span><span class="n">subscribe</span><span class="p">(</span><span class="s2">&quot;humidity/#&quot;</span><span class="p">)</span>
-        <span class="c1"># Use a task group to manage and await all tasks</span>
-        <span class="k">async</span> <span class="k">with</span> <span class="n">asyncio</span><span class="o">.</span><span class="n">TaskGroup</span><span class="p">()</span> <span class="k">as</span> <span class="n">tg</span><span class="p">:</span>
-            <span class="n">tg</span><span class="o">.</span><span class="n">create_task</span><span class="p">(</span><span class="n">distributor</span><span class="p">(</span><span class="n">client</span><span class="p">))</span>
-            <span class="n">tg</span><span class="o">.</span><span class="n">create_task</span><span class="p">(</span><span class="n">temperature_consumer</span><span class="p">())</span>
-            <span class="n">tg</span><span class="o">.</span><span class="n">create_task</span><span class="p">(</span><span class="n">humidity_consumer</span><span class="p">())</span>
-
-
-<span class="n">asyncio</span><span class="o">.</span><span class="n">run</span><span class="p">(</span><span class="n">main</span><span class="p">())</span>
-</pre></div>
-</div>
-<div class="admonition tip">
-<p class="admonition-title">Tip</p>
-<p>You can use <a class="reference internal" href="#the-message-queue">different queue types</a> for these queues to e.g. handle temperature in FIFO and humidity in LIFO order.</p>
 </div>
 </section>
 <section id="listening-without-blocking">
@@ -592,7 +541,6 @@
 <li><a class="reference internal" href="#filtering-messages">Filtering messages</a></li>
 <li><a class="reference internal" href="#the-message-queue">The message queue</a></li>
 <li><a class="reference internal" href="#processing-concurrently">Processing concurrently</a></li>
-<li><a class="reference internal" href="#multiple-queues">Multiple queues</a></li>
 <li><a class="reference internal" href="#listening-without-blocking">Listening without blocking</a></li>
 <li><a class="reference internal" href="#stop-listening">Stop listening</a></li>
 <li><a class="reference internal" href="#stop-listening-after-timeout">Stop listening after timeout</a></li>

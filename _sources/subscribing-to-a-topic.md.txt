@@ -105,25 +105,26 @@ By default, the size of the queue is unlimited. You can set a limit through the 
 
 Messages are queued internally and returned sequentially from `Client.messages`. If a message takes a long time to handle, it blocks the handling of other messages.
 
-You can handle messages concurrently by using an `asyncio.TaskGroup` like so:
+You can handle messages concurrently by using multiple worker tasks like so:
 
 ```python
 import asyncio
 import aiomqtt
 
 
-async def handle(message):
-    await asyncio.sleep(5)  # Simulate some I/O-bound work
-    print(message.payload)
+async def work(client):
+    async for message in client.messages:
+        await asyncio.sleep(5)  # Simulate some I/O-bound work
+        print(message.payload)
 
 
 async def main():
     async with aiomqtt.Client("test.mosquitto.org") as client:
         await client.subscribe("temperature/#")
-        # Use a task group to manage and await all tasks
+        # Use a task group to manage and await all worker tasks
         async with asyncio.TaskGroup() as tg:
-            async for message in client.messages:
-                tg.create_task(handle(message))  # Spawn new coroutine
+            for _ in range(2):  # You can use more than two workers here
+                tg.create_task(work(client))
 
 
 asyncio.run(main())
@@ -131,60 +132,6 @@ asyncio.run(main())
 
 ```{important}
 Coroutines only make sense if your message handling is I/O-bound. If it's CPU-bound, you should spawn multiple processes instead.
-```
-
-## Multiple queues
-
-The code snippet above handles each message in a new coroutine. Sometimes, we want to handle messages from different topics concurrently, but sequentially inside a single topic.
-
-The idea here is to implement a "distributor" that sorts incoming messages into multiple asyncio queues. Each queue is then processed by a different coroutine. Let's see how this works for our temperature and humidity messages:
-
-```python
-import asyncio
-import aiomqtt
-
-
-async def temperature_consumer():
-    while True:
-        message = await temperature_queue.get()
-        print(f"[temperature/#] {message.payload}")
-
-
-async def humidity_consumer():
-    while True:
-        message = await humidity_queue.get()
-        print(f"[humidity/#] {message.payload}")
-
-
-temperature_queue = asyncio.Queue()
-humidity_queue = asyncio.Queue()
-
-
-async def distributor(client):
-    # Sort messages into the appropriate queues
-    async for message in client.messages:
-        if message.topic.matches("temperature/#"):
-            temperature_queue.put_nowait(message)
-        elif message.topic.matches("humidity/#"):
-            humidity_queue.put_nowait(message)
-
-
-async def main():
-    async with aiomqtt.Client("test.mosquitto.org") as client:
-        await client.subscribe("temperature/#")
-        await client.subscribe("humidity/#")
-        # Use a task group to manage and await all tasks
-        async with asyncio.TaskGroup() as tg:
-            tg.create_task(distributor(client))
-            tg.create_task(temperature_consumer())
-            tg.create_task(humidity_consumer())
-
-
-asyncio.run(main())
-```
-
-```{tip}
-You can use [different queue types](#the-message-queue) for these queues to e.g. handle temperature in FIFO and humidity in LIFO order.
 ```
 
 ## Listening without blocking
