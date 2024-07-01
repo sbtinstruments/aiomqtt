@@ -34,6 +34,7 @@ from paho.mqtt.subscribeoptions import SubscribeOptions
 
 from .exceptions import MqttCodeError, MqttConnectError, MqttError, MqttReentrantError
 from .message import Message
+from .router import Router
 from .types import (
     P,
     PayloadType,
@@ -134,6 +135,7 @@ class Client:
         password: The password to authenticate with.
         logger: Custom logger instance.
         identifier: The client identifier. Generated automatically if ``None``.
+        routers: A list of routers to route messages to.
         queue_type: The class to use for the queue. The default is
             ``asyncio.Queue``, which stores messages in FIFO order. For LIFO order,
             you can use ``asyncio.LifoQueue``; For priority order you can subclass
@@ -186,6 +188,7 @@ class Client:
         password: str | None = None,
         logger: logging.Logger | None = None,
         identifier: str | None = None,
+        routers: list[Router] | None = None,
         queue_type: type[asyncio.Queue[Message]] | None = None,
         protocol: ProtocolVersion | None = None,
         will: Will | None = None,
@@ -248,6 +251,11 @@ class Client:
 
         if protocol is None:
             protocol = ProtocolVersion.V311
+
+        # List of routers with message handlers
+        if routers is None:
+            routers = []
+        self._routers = routers
 
         # Create the underlying paho-mqtt client instance
         self._client: mqtt.Client = mqtt.Client(
@@ -455,6 +463,14 @@ class Client:
         with self._pending_call(info.mid, confirmation, self._pending_publishes):
             # Wait for confirmation
             await self._wait_for(confirmation.wait(), timeout=timeout)
+
+    async def route(self, message: Message) -> None:
+        """Route a message to the appropriate handler."""
+        for router in self._routers:
+            for wildcard, handler in router._handlers.items():
+                with contextlib.suppress(ValueError):
+                    # If we get a ValueError, we know that the topic doesn't match
+                    await handler(message, self, *message.topic.extract(wildcard))
 
     async def _messages(self) -> AsyncGenerator[Message, None]:
         """Async generator that yields messages from the underlying message queue."""

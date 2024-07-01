@@ -8,6 +8,7 @@ from .client import (
 )
 from .exceptions import MqttCodeError, MqttError, MqttReentrantError
 from .message import Message
+from .router import Router
 from .topic import Topic, TopicLike, Wildcard, WildcardLike
 
 # These are placeholders that are managed by poetry-dynamic-versioning
@@ -19,6 +20,7 @@ __all__ = [
     "__version_tuple__",
     "Client",
     "Message",
+    "Router",
     "ProtocolVersion",
     "ProxySettings",
     "TLSParameters",

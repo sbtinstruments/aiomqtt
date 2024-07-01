@@ -89,6 +89,21 @@ class Topic(Wildcard):
         Returns:
             True if the topic matches the wildcard, False otherwise.
         """
+        try:
+            self.extract(wildcard)
+            return True
+        except ValueError:
+            return False
+
+    def extract(self, wildcard: WildcardLike) -> list[str]:
+        """Extract the wildcard values from the topic.
+
+        Args:
+            wildcard: The wildcard to match against.
+
+        Returns:
+            A list of wildcard values extracted from the topic.
+        """
         if not isinstance(wildcard, Wildcard):
             wildcard = Wildcard(wildcard)
         # Split topics into levels to compare them one by one
@@ -98,21 +113,19 @@ class Topic(Wildcard):
             # Shared subscriptions use the topic structure: $share/<group_id>/<topic>
             wildcard_levels = wildcard_levels[2:]
 
-        def recurse(tl: list[str], wl: list[str]) -> bool:
-            """Recursively match topic levels with wildcard levels."""
-            if not tl:
-                if not wl or wl[0] == "#":
-                    return True
-                return False
-            if not wl:
-                return False
-            if wl[0] == "#":
-                return True
-            if tl[0] == wl[0] or wl[0] == "+":
-                return recurse(tl[1:], wl[1:])
-            return False
-
-        return recurse(topic_levels, wildcard_levels)
+        # Extract wildcard values from the topic
+        arguments = []
+        for index, level in enumerate(wildcard_levels):
+            if level == "#":
+                return arguments + topic_levels[index:]
+            if len(topic_levels) == index:
+                raise ValueError("Topic does not match wildcard")
+            if level != "+" and level != topic_levels[index]:
+                raise ValueError("Topic does not match wildcard")
+            arguments.append(topic_levels[index])
+        if len(topic_levels) > index + 1:
+            raise ValueError("Topic does not match wildcard")
+        return arguments
 
 
 TopicLike: TypeAlias = "str | Topic"
