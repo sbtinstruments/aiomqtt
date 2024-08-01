@@ -43,6 +43,12 @@ pip install aiomqtt
 
 The only dependency is [paho-mqtt](https://github.com/eclipse/paho.mqtt.python).
 
+If you need proxy support, you can install with the proxy extra:
+
+```
+pip install aiomqtt[proxy]
+```
+
 If you can't wait for the latest version, install directly from GitHub with:
 
 ```

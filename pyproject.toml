@@ -23,6 +23,11 @@ python = "^3.8"
 paho-mqtt = "^2.1.0"
 typing-extensions = {version = "^4.4.0", markers = "python_version < '3.10'"}
 
+[project.optional-dependencies]
+proxy = [
+    "PySocks",
+]
+
 [tool.poetry.group.dev]
 optional = true
 
